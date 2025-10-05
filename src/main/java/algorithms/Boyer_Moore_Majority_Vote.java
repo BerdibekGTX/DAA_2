@@ -1,6 +1,5 @@
 package algorithms;
 import java.util.Scanner;
-import java.util.Arrays;
 
 public class Boyer_Moore_Majority_Vote {
     private int comparisons = 0;
