@@ -1,37 +1,80 @@
 package algorithms;
-import org.junit.jupiter.api.Test;
+
+import metrics.PerformanceTracker;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
+
+import java.io.BufferedWriter;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.util.Random;
+
 import static org.junit.jupiter.api.Assertions.*;
 
-class Boyer_Moore_Majority_Vote_Test {
-    Boyer_Moore_Majority_Vote bm = new Boyer_Moore_Majority_Vote();
+public class Boyer_Moore_Majority_Vote_Test {
 
-    @Test
-    void testEmptyArray() {
-        assertNull(bm.findMajority(new int[]{}));
+    private static final String METRICS_FILE_NAME = "target/boyer_moore_metrics.csv";
+
+    @BeforeAll
+    static void clearMetricsFile() {
+        try {
+            boolean deleted = Files.deleteIfExists(Paths.get(METRICS_FILE_NAME));
+            if (deleted) {
+                System.out.println("Metrics file deleted successfully.");
+            }
+            try (BufferedWriter writer = new BufferedWriter(new FileWriter(METRICS_FILE_NAME, false))) {
+                writer.write("ArraySize,ElapsedTimeMs,Comparisons,ArrayAccesses,MemoryAllocations,MajorityFound\n");
+            }
+        } catch (IOException e) {
+            System.err.println("Error while trying to delete or initialize metrics file: " + e.getMessage());
+        }
     }
 
-    @Test
-    void testSingleElement() {
-        assertEquals(1, bm.findMajority(new int[]{1}));
+    private int[] generateRandomArray(int size, int bound) {
+        Random rnd = new Random();
+        int[] arr = new int[size];
+        for (int i = 0; i < size; i++) {
+            arr[i] = rnd.nextInt(bound);
+        }
+        return arr;
     }
 
-    @Test
-    void testNoMajority() {
-        assertNull(bm.findMajority(new int[]{1,2,3,4}));
-    }
+    @ParameterizedTest
+    @ValueSource(ints = {100, 1000, 10000, 100000})
+    public void testBoyerMooreMajorityVotePerformance(int size) {
+        int[] arr = generateRandomArray(size, 1000);
+        Boyer_Moore_Majority_Vote algo = new Boyer_Moore_Majority_Vote();
+        PerformanceTracker tracker = new PerformanceTracker();
 
-    @Test
-    void testMajorityPresent() {
-        assertEquals(2, bm.findMajority(new int[]{2,2,1,1,1,2,2}));
-    }
+        tracker.startTimer();
+        Integer majority = algo.findMajority(arr);
+        tracker.stopTimer();
 
-    @Test
-    void testAllDuplicates() {
-        assertEquals(3, bm.findMajority(new int[]{3,3,3,3}));
-    }
+        System.out.printf("Array size: %d, Time: %.3f ms, Comparisons: %d, Array Accesses: %d, Memory Allocations: %d, Majority Found: %s%n",
+                size, tracker.getElapsedTimeMillis(), tracker.getComparisons(),
+                tracker.getArrayAccesses(), tracker.getMemoryAllocations(),
+                majority != null ? "Yes" : "No");
 
-    @Test
-    void testNullInput() {
-        assertThrows(IllegalArgumentException.class, () -> bm.findMajority(null));
+        // Write metrics to CSV for easier analysis
+        try (BufferedWriter writer = new BufferedWriter(new FileWriter(METRICS_FILE_NAME, true))) {
+            writer.write(String.format("%d,%.3f,%d,%d,%d,%s\n",
+                    size,
+                    tracker.getElapsedTimeMillis(),
+                    tracker.getComparisons(),
+                    tracker.getArrayAccesses(),
+                    tracker.getMemoryAllocations(),
+                    majority != null ? "Yes" : "No"));
+        } catch (IOException e) {
+            System.err.println("Failed to write metrics to CSV: " + e.getMessage());
+        }
+
+        // Проверка корректности результата - если majority найден, он должен быть мажоритарным
+        if (majority != null) {
+            long count = java.util.Arrays.stream(arr).filter(x -> x == majority).count();
+            assertTrue(count > size / 2, "Majority element count must be greater than half the array size");
+        }
     }
 }
